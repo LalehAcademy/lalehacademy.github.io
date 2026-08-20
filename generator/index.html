@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Generator — Laleh Academy (Admin)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/assets/logo/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .gen-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; padding: 28px 0 60px; }
+  @media (max-width: 900px) { .gen-layout { grid-template-columns: 1fr; } }
+  .gen-form { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-card); }
+  .gen-form h2 { font-family: var(--font-display); font-size: 1.05rem; color: var(--blue-900); margin-top: 0; }
+  .field { margin-bottom: 14px; }
+  .field label { display:block; font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; padding: 10px 11px; border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 0.92rem; background: var(--paper);
+  }
+  .field small { display:block; color: var(--ink-soft); font-size: 0.75rem; margin-top: 4px; }
+  .field-row { display:flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .id-row { display:flex; gap: 8px; align-items: flex-end; }
+  .id-row .field { flex:1; margin-bottom:0; }
+  .preview-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-card); }
+  #certCanvas { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; background:#fff; }
+  .actions { display:flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .notice { background:#FFF7DE; border:1px solid #F2E3A6; border-radius: var(--radius-sm); padding: 12px 14px; font-size: 0.85rem; color:#5C4400; margin-bottom: 18px; }
+  .json-out { width:100%; min-height: 160px; font-family: var(--font-mono); font-size: 0.8rem; padding: 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-strong); background: var(--ink); color: #DCE3FF; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="brand" href="/">
+      <img class="brand__mark" src="/assets/logo/logo.svg" alt="" width="40" height="40">
+      <span>
+        <span class="brand__name" style="display:block;">Laleh Academy</span>
+        <span class="brand__tagline">Certificate Generator (Admin)</span>
+      </span>
+    </a>
+  </div>
+</header>
+
+<main>
+  <div class="container" style="max-width: 1180px;">
+    <div class="notice">
+      <strong>Admin tool — runs entirely in your browser.</strong> Nothing here is published automatically.
+      When you're done, download the certificate image and the registry entry below, then commit the entry into
+      <code>data/certificates.json</code> yourself (or hand it to whoever manages the repository). See the
+      README for the full workflow and why this step isn't automated on GitHub Pages.
+    </div>
+
+    <div class="gen-layout">
+      <form class="gen-form" id="genForm">
+        <h2>Certificate details</h2>
+
+        <div class="id-row">
+          <div class="field">
+            <label for="certId">Certificate ID</label>
+            <input type="text" id="certId" placeholder="LA-2026-000187" readonly>
+            <small>Generated automatically. Random within the year to avoid predictable, enumerable IDs.</small>
+          </div>
+          <button type="button" class="btn btn-ghost" id="regenId">New ID</button>
+        </div>
+
+        <div class="field">
+          <label for="recipient">Recipient name</label>
+          <input type="text" id="recipient" placeholder="Ahmed Karim Jassim" required>
+        </div>
+
+        <div class="field">
+          <label for="certType">Certificate title</label>
+          <input type="text" id="certType" placeholder="Certificate of Completion" value="Certificate of Completion">
+        </div>
+
+        <div class="field">
+          <label for="program">Course / program</label>
+          <input type="text" id="program" placeholder="Petroleum Engineering Training Program" required>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="issueDate">Issue date</label>
+            <input type="date" id="issueDate" required>
+          </div>
+          <div class="field">
+            <label for="completionDate">Completion date</label>
+            <input type="date" id="completionDate">
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="duration">Duration</label>
+            <input type="text" id="duration" placeholder="40 hours">
+          </div>
+          <div class="field">
+            <label for="status">Status</label>
+            <select id="status">
+              <option value="valid" selected>Valid</option>
+              <option value="pending">Pending</option>
+              <option value="revoked">Revoked</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="instructor">Instructor (optional)</label>
+          <input type="text" id="instructor">
+        </div>
+
+        <div class="field">
+          <label for="department">Department (optional)</label>
+          <input type="text" id="department">
+        </div>
+
+        <div class="field">
+          <label for="baseUrl">Verification domain</label>
+          <input type="text" id="baseUrl" value="https://lalehacademy.github.io">
+          <small>QR code will encode {domain}/certificates/{id}</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;">Generate certificate + QR</button>
+      </form>
+
+      <div class="preview-wrap">
+        <h2 style="font-family: var(--font-display); color: var(--blue-900); margin-top:0;">Preview</h2>
+        <canvas id="certCanvas" width="3300" height="2550"></canvas>
+        <div class="actions">
+          <button type="button" class="btn btn-gold" id="downloadPng" disabled>Download certificate (PNG)</button>
+          <button type="button" class="btn btn-ghost" id="downloadQr" disabled>Download QR only</button>
+        </div>
+
+        <h2 style="font-family: var(--font-display); color: var(--blue-900); margin-top:22px;">Registry entry</h2>
+        <p style="font-size:0.85rem; color:var(--ink-soft); margin-top:-6px;">Copy this object into the <code>certificates</code> array in <code>data/certificates.json</code>.</p>
+        <textarea class="json-out" id="jsonOut" readonly></textarea>
+        <div class="actions">
+          <button type="button" class="btn btn-ghost" id="copyJson">Copy JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/generator.js"></script>
+</body>
+</html>
