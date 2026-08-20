@@ -44,6 +44,7 @@ in the repository, and the "database" is Git history.
 ├── js/
 │   ├── utils.js                Shared helpers: ID validation, escaping, date formatting
 │   ├── verify.js                Verification page controller / state rendering
+│   ├── templates.js             Certificate template registry (multiple certificate types)
 │   └── generator.js             Admin certificate + QR generator logic
 ├── generator/index.html       Admin tool (client-side only)
 └── .nojekyll                  Disables Jekyll processing on GitHub Pages
@@ -67,7 +68,13 @@ in the repository, and the "database" is Git history.
   `location.pathname`, not a bolted-on hash fragment.
 - **`generator/` is separate from the public site** conceptually (it's an admin tool),
   but is not access-controlled, because a static site cannot enforce access control —
-  see [Security model](#5-security-model).
+  see [Security model](#6-security-model).
+- **`js/templates.js` is a registry, not a single hardcoded layout.** Each certificate
+  type (Completion, Achievement, Attendance, ...) owns its own drawing code, QR
+  position, and default title. The generator asks whichever template is selected to
+  draw itself — it has no per-type logic of its own. Adding a new certificate type
+  means adding one object to this file; nothing else changes. See
+  [Certificate types / templates](#4-certificate-types--templates).
 
 ---
 
@@ -102,7 +109,9 @@ in the repository, and the "database" is Git history.
 
 **Required fields:** `id`, `recipient`, `certificate`, `issuer`, `issueDate`, `status`.
 Everything else (`completionDate`, `duration`, `instructor`, `department`, `title`,
-`statusNote`) is optional and simply omitted from display when absent.
+`statusNote`, `templateId`) is optional and simply omitted from display when absent.
+`templateId` records which certificate design (see [§4](#4-certificate-types--templates))
+was used, for administrative reference — the public verification page doesn't show it.
 
 `status` must be one of: `valid`, `revoked`, `expired`, `pending`. Any other value, or a
 record missing a required field, is treated as **malformed** and shown as a safe error
@@ -117,7 +126,90 @@ Delete them before going live.
 
 ---
 
-## 4. Certificate IDs
+## 4. Certificate types / templates
+
+Laleh Academy issues more than one kind of certificate, so the visual design isn't
+hardcoded — it's a **registry of templates** in `js/templates.js`. This build ships
+three:
+
+| Template ID   | Name                          | Typical use                                  | QR position    |
+|---------------|-------------------------------|-----------------------------------------------|-----------------|
+| `completion`  | Certificate of Completion     | Standard course/program completion            | bottom-right    |
+| `achievement` | Certificate of Achievement    | Distinction / merit-based recognition          | bottom-left     |
+| `attendance`  | Certificate of Attendance     | Short workshops, seminars, events              | top-right       |
+
+Each is visually distinct (border style, layout, accent emphasis) rather than a
+recolored copy of the others, and each defines its **own** QR placement — a compact
+attendance certificate and a full-page achievement award don't share layout geometry,
+so forcing one QR position across every template would look wrong on at least one.
+
+**In the generator** (`/generator/`), the admin picks a **Certificate type** dropdown at
+the top of the form. That selection:
+- Chooses which template's `draw()` function renders the canvas preview and PNG
+- Auto-fills the "Certificate title" field with that template's default title (e.g.
+  picking Achievement fills in "Certificate of Achievement") — still freely editable
+- Is recorded on the record as `templateId` when you export the registry entry, so if
+  you ever need to regenerate that exact certificate later, you know which layout to
+  use again
+
+**In the registry** (`data/certificates.json`), `templateId` is an optional field kept
+for this provenance/regeneration purpose. The public verification page does not display
+it — it's an administrative detail, not something a verifier needs to see.
+
+### Adding a new certificate type
+Open `js/templates.js` and add one object to the `TEMPLATES` array:
+
+```js
+const myNewTemplate = {
+  id: "workshop-premium",                 // used as the <option value> and templateId
+  name: "Premium Workshop Certificate",   // shown in the generator dropdown
+  description: "For paid, multi-day workshops.",
+  defaultTitle: "Certificate of Completion — Premium Workshop",
+  qrPosition: { x: 78, y: 74, width: 16, height: 20, idAlign: "right" }, // % of canvas
+  draw(ctx, canvas, record, qrImage) {
+    // draw your layout here, then finish with:
+    // LalehTemplates.drawQr(ctx, canvas, this.qrPosition, qrImage, record);
+    // if (record.sample) LalehTemplates.sampleWatermark(ctx, canvas);
+  },
+};
+
+const TEMPLATES = [completion, achievement, attendance, myNewTemplate];
+```
+
+Nothing in `generator.js` or `generator/index.html` needs to change — the dropdown and
+the draw call are both driven by this array. `wrapText()`, `metaRows()`, `drawQr()`, and
+`sampleWatermark()` are exposed on `LalehTemplates` for reuse across templates so you're
+not rewriting text-wrapping or QR-compositing logic for every new design.
+
+### Using a real certificate image instead of a code-drawn design
+Every template currently draws its layout with Canvas shape/text commands (a stand-in,
+since no real artwork was supplied). To use an actual template image instead:
+
+1. Export the artwork at 300 DPI. For the 11×8.5in landscape canvas this generator
+   uses, that's 3300×2550px (already the default `<canvas>` size).
+2. Save it under `assets/certificate/`, e.g. `assets/certificate/completion.png`.
+3. In that template's `draw()` function, replace the shape-drawing code with:
+   ```js
+   draw(ctx, canvas, record, qrImage) {
+     const bg = new Image();
+     bg.src = "/assets/certificate/completion.png";
+     bg.onload = () => {
+       ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+       // overlay recipient name / program / dates at the coordinates that
+       // match this template's blank fields, then:
+       LalehTemplates.drawQr(ctx, canvas, this.qrPosition, qrImage, record);
+     };
+   },
+   ```
+4. Update the text coordinates and `qrPosition` to match where the real artwork has
+   blank space for each field and for the QR code.
+
+Do this per template — each certificate type can have its own real artwork, or share
+one image with different overlay text, depending on what Laleh Academy actually uses.
+
+---
+
+## 5. Certificate IDs
 
 **Format:** `LA-YYYY-XXXXXX` — issuing year plus a 6-digit number, e.g. `LA-2026-000184`.
 
@@ -140,7 +232,7 @@ GitHub Action that rejects a commit containing a duplicate `id`.
 
 ---
 
-## 5. Security model
+## 6. Security model
 
 **Be precise about what this system actually proves.** A static GitHub Pages site
 cannot authenticate anyone, hold secrets, or prevent someone from copying the HTML and
@@ -164,7 +256,7 @@ trusting anything encoded in the URL beyond the certificate ID.
   none should ever be added to client-side JS — anything shipped to the browser is
   public, full stop.
 - No server-side write access. The generator cannot and does not push to GitHub. See
-  [Certificate generation workflow](#6-certificate-generation-workflow).
+  [Certificate generation workflow](#7-certificate-generation-workflow).
 
 **What this system does to reduce risk within those constraints:**
 - Certificate IDs are random, not sequential (see above), to avoid making the registry
@@ -194,7 +286,7 @@ pasted into the URL) is rendered as inert text, not executed.
 
 ---
 
-## 6. Certificate generation workflow
+## 7. Certificate generation workflow
 
 **What's automated:**
 1. Random, collision-checked-at-a-glance ID generation
@@ -237,11 +329,11 @@ If Laleh Academy later wants one-click publishing, the natural evolution is a sm
 GitHub Action triggered by a `workflow_dispatch` or an authenticated form submission
 (e.g. via GitHub's REST API from a lightweight serverless function you control) — that
 requires a server-side component and is out of scope for a pure GitHub Pages site. See
-[Future scalability](#9-future-scalability).
+[Future scalability](#10-future-scalability).
 
 ---
 
-## 7. Privacy
+## 8. Privacy
 
 The registry only stores what's needed to verify a certificate: recipient name,
 program/certificate name, dates, duration, instructor/department, status, and ID. It
@@ -263,7 +355,7 @@ a blanket default.
 
 ---
 
-## 8. Deployment
+## 9. Deployment
 
 ### Create and configure the repository
 1. Create a new **public** GitHub repository (private repos need GitHub Pro/Team/Enterprise for Pages).
@@ -310,32 +402,7 @@ a blanket default.
 
 ---
 
-## Updating the certificate template
-
-The real certificate artwork should replace the placeholder drawing in
-`js/generator.js` (`drawCertificate()`). Recommended approach:
-
-1. Place the template image at `assets/certificate/template.png` (export at 300 DPI —
-   for an 11×8.5in landscape certificate that's 3300×2550px, which is what the canvas
-   in `generator/index.html` is already sized for).
-2. In `drawCertificate()`, replace the placeholder shape-drawing code with:
-   ```js
-   const bg = new Image();
-   bg.src = "/assets/certificate/template.png";
-   bg.onload = () => {
-     ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-     // ...then draw recipient name / program / dates / QR at the coordinates
-     //    that match the real template's blank fields.
-   };
-   ```
-3. Update the text coordinates (currently hand-placed for the placeholder design) and
-   `QR_POSITION` in `js/generator.js` to match where your template has blank space and
-   the QR code should sit. `QR_POSITION` is percentage-based (`{x, y, width, height}` as
-   % of canvas size) specifically so it stays correct regardless of final resolution.
-
----
-
-## 9. Future scalability
+## 10. Future scalability
 
 The current design is deliberately simple, but each of these is a natural extension
 that doesn't require re-architecting the core:
@@ -357,7 +424,7 @@ that doesn't require re-architecting the core:
 
 ---
 
-## 10. Known limitations (be upfront about these)
+## 11. Known limitations (be upfront about these)
 
 - This is **verification against a registry**, not cryptographic proof. Anyone with
   repository write access can add or edit a record. Access control is GitHub's
