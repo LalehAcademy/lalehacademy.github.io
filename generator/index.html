@@ -58,6 +58,12 @@
       <form class="gen-form" id="genForm">
         <h2>Certificate details</h2>
 
+        <div class="field">
+          <label for="templateId">Certificate type</label>
+          <select id="templateId"></select>
+          <small id="templateDesc"></small>
+        </div>
+
         <div class="id-row">
           <div class="field">
             <label for="certId">Certificate ID</label>
@@ -74,7 +80,8 @@
 
         <div class="field">
           <label for="certType">Certificate title</label>
-          <input type="text" id="certType" placeholder="Certificate of Completion" value="Certificate of Completion">
+          <input type="text" id="certType" placeholder="Certificate of Completion">
+          <small>Auto-filled from the certificate type above — edit freely if you need custom wording.</small>
         </div>
 
         <div class="field">
@@ -149,6 +156,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="/js/utils.js"></script>
+<script src="/js/templates.js"></script>
 <script src="/js/generator.js"></script>
 </body>
 </html>
