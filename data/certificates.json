@@ -5,6 +5,7 @@
   "certificates": [
     {
       "id": "LA-2026-000184",
+      "templateId": "completion",
       "recipient": "Ahmed Karim Jassim",
       "certificate": "Petroleum Engineering Training Program",
       "title": "Certificate of Completion",
@@ -20,6 +21,7 @@
     },
     {
       "id": "LA-2026-000001",
+      "templateId": "completion",
       "recipient": "Zainab Fadhil Mousa",
       "certificate": "Occupational Health & Safety Fundamentals",
       "title": "Certificate of Completion",
@@ -33,6 +35,7 @@
     },
     {
       "id": "LA-2026-000002",
+      "templateId": "completion",
       "recipient": "Mustafa Adnan Yousif",
       "certificate": "Project Management Essentials",
       "title": "Certificate of Completion",
@@ -47,9 +50,10 @@
     },
     {
       "id": "LA-2026-000003",
+      "templateId": "achievement",
       "recipient": "Layla Kareem Obeid",
       "certificate": "Advanced Drilling Operations",
-      "title": "Certificate of Professional Training",
+      "title": "Certificate of Achievement",
       "issuer": "Laleh Academy",
       "issueDate": "2026-03-22",
       "completionDate": "2026-03-20",
@@ -62,6 +66,7 @@
     },
     {
       "id": "LA-2026-000004",
+      "templateId": "completion",
       "recipient": "نور الهدى عبد الرزاق الجبوري",
       "certificate": "International Standards for Quality Management Systems and Continuous Improvement in Industrial Operations",
       "title": "Certificate of Completion",
@@ -77,6 +82,7 @@
     },
     {
       "id": "LA-2026-000005",
+      "templateId": "completion",
       "recipient": "Hassan Fawzi Rasheed",
       "certificate": "Certified Safety Supervisor Program",
       "title": "Certificate of Completion",
@@ -91,9 +97,10 @@
     },
     {
       "id": "LA-2026-000006",
+      "templateId": "attendance",
       "recipient": "Rana Saad Ibrahim",
       "certificate": "Environmental Compliance Training",
-      "title": "Certificate of Completion",
+      "title": "Certificate of Attendance",
       "issuer": "Laleh Academy",
       "issueDate": "2026-08-19",
       "status": "pending",
