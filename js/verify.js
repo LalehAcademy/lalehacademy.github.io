@@ -187,6 +187,64 @@
     ]);
   }
 
+  /*
+   * Certificate preview + verification seal.
+   *
+   * The seal is a UI overlay only — it is never baked into the certificate
+   * file itself, and it never appears from a URL parameter or client-side
+   * guess. It renders only when BOTH are true:
+   *   1. record.status === "valid"   (revoked/expired/pending never get it)
+   *   2. record.certificateImage is present on the registry record fetched
+   *      from data/certificates.json
+   * That second condition is deliberate: the public verification page does
+   * not serve a downloadable certificate image by default (see README,
+   * "Privacy"). A record only gets a preview + seal if an administrator
+   * explicitly opted that specific certificate into having one by adding
+   * a certificateImage path — never automatically for every certificate.
+   */
+  function renderCertificatePreview(record) {
+    if (record.status !== "valid" || !record.certificateImage) return null;
+
+    const wrap = document.createElement("div");
+    wrap.className = "cert-preview";
+    wrap.appendChild(el("h3", null, ["Certificate Preview"]));
+
+    const frame = document.createElement("div");
+    frame.className = "cert-preview__frame cert-preview__frame--sealed";
+
+    const img = document.createElement("img");
+    img.src = record.certificateImage;
+    img.alt = `Laleh Academy certificate issued to ${record.recipient} — ${record.certificate}`;
+    img.loading = "lazy";
+    frame.appendChild(img);
+
+    const seal = document.createElement("div");
+    seal.className = "verify-seal";
+    seal.setAttribute("role", "img");
+    seal.setAttribute("aria-label", "Laleh Academy verified seal — this certificate matches the official registry");
+    seal.innerHTML = `
+      <svg viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <path id="sealArcTop" d="M 22 70 A 48 48 0 0 1 118 70" />
+        </defs>
+        <circle cx="70" cy="70" r="66" fill="#031861" opacity="0.94"/>
+        <circle cx="70" cy="70" r="66" fill="none" stroke="#F7C41D" stroke-width="2.5"/>
+        <circle cx="70" cy="70" r="56" fill="none" stroke="#F7C41D" stroke-width="1" opacity="0.6"/>
+        <path d="M50 71 L64 85 L92 55" fill="none" stroke="#F7C41D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <text font-family="Inter, sans-serif" font-size="9.5" font-weight="700" letter-spacing="1.5" fill="#FFFFFF">
+          <textPath href="#sealArcTop" startOffset="50%" text-anchor="middle">LALEH ACADEMY</textPath>
+        </text>
+        <text x="70" y="108" font-family="Inter, sans-serif" font-size="12" font-weight="700" letter-spacing="2" fill="#F7C41D" text-anchor="middle">VERIFIED</text>
+      </svg>`;
+    frame.appendChild(seal);
+
+    wrap.appendChild(frame);
+    wrap.appendChild(el("p", { style: "font-size:0.82rem; color:var(--ink-soft); margin: 10px 0 0;" }, [
+      "This seal confirms the certificate above matches the Laleh Academy official registry at the time of verification. It is applied by this page and is not part of the original certificate file.",
+    ]));
+    return wrap;
+  }
+
   function renderValidLike(record) {
     root.innerHTML = "";
     const content = STATUS_CONTENT[record.status];
@@ -199,6 +257,9 @@
       el("span", { class: "status-tag" }, [content.tag]),
     ]);
     root.appendChild(band);
+
+    const preview = renderCertificatePreview(record);
+    if (preview) root.appendChild(preview);
 
     const card = document.createElement("div");
     card.className = "cred-card";

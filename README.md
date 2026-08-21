@@ -43,10 +43,14 @@ in the repository, and the "database" is Git history.
 ├── css/style.css              All styling (design tokens at the top)
 ├── js/
 │   ├── utils.js                Shared helpers: ID validation, escaping, date formatting
-│   ├── verify.js                Verification page controller / state rendering
+│   ├── verify.js                Verification page controller / state rendering / seal
 │   ├── templates.js             Certificate template registry (multiple certificate types)
-│   └── generator.js             Admin certificate + QR generator logic
-├── generator/index.html       Admin tool (client-side only)
+│   ├── generator.js             Single-certificate admin generator logic
+│   ├── bulk.js                  Bulk CSV generation: parse, validate, generate, ZIP export
+│   ├── qr-editor.js             Drag/resize QR positioning editor
+│   ├── auth.js                  Admin session gate (password check, session expiry)
+│   └── auth-config.js           Admin password hash + session timeout config
+├── generator/index.html       Password-gated admin dashboard (single / bulk / QR settings)
 └── .nojekyll                  Disables Jekyll processing on GitHub Pages
 ```
 
@@ -333,7 +337,134 @@ requires a server-side component and is out of scope for a pure GitHub Pages sit
 
 ---
 
-## 8. Privacy
+## 8. Admin dashboard: bulk generation, verification seal, QR editor, password protection
+
+The admin tool at `/generator/` is now a small dashboard with three tabs, sitting
+behind a password gate. Public verification (`/`, `/verify/`, `/certificates/...`)
+is completely unaffected and stays open with no login.
+
+### 8.1 Password protection
+
+**Read this before relying on it.** A static site cannot hold a real secret — anyone
+can view every file GitHub Pages serves, including the JavaScript that checks the
+password. This gate is a **deterrent against accidental/casual access**, not
+authentication in the sense a login-walled application has it. The actual control
+over who can issue real certificates remains what it always was: **GitHub repository
+permissions on who can commit to `data/certificates.json`.**
+
+What it does do, within that honest limit:
+- The password is never stored in source as plain text (`js/auth-config.js` holds a
+  SHA-256 **hash**, not the password itself) — see that file for exactly how to change
+  it (one line, one browser-console command, no build step).
+- A successful login sets a timestamped flag in `sessionStorage` (not the password) —
+  cleared automatically when the tab/browser closes, and expired after 30 minutes of
+  inactivity (configurable in `js/auth-config.js`).
+- A **Log Out** button in the dashboard header clears the session immediately.
+- Direct navigation to `/generator/` always shows the password screen first — nothing
+  about it is exposed via routing or hidden pages, though as with anything client-side,
+  the *code* for the gate itself is visible to anyone who looks, by definition of how
+  static hosting works.
+
+If Laleh Academy later needs real access control (e.g., different staff with different
+permissions, an audit log of who issued what), that requires a server component — see
+[Future scalability](#11-future-scalability).
+
+### 8.2 Bulk certificate generation (CSV)
+
+In the **Bulk Generation** tab:
+1. Upload a `.csv` with at minimum `recipient`, `certificate`, `issueDate` columns
+   (column names are matched flexibly — `name`/`recipientname` are also recognized for
+   `recipient`, for example). Optional columns: `completionDate`, `duration`,
+   `instructor`, `department`, `title`.
+2. Nothing is generated yet — you see a **preview table** with a Ready/Error status per
+   row and specific messages (`Row 14: Missing required field: recipient`, `Row 27:
+   Invalid date format: 2026/99/40`) for anything that won't pass.
+3. Pick a certificate type and click **Generate N Certificates**. Only rows marked
+   Ready are generated; errored rows are skipped, not silently dropped — they're listed
+   again in the final summary.
+4. A progress bar tracks generation (`31 / 50 completed`) since drawing dozens of
+   full-resolution certificates and generating QR codes takes a moment; the UI yields
+   periodically so the tab doesn't freeze.
+5. You get a downloaded **ZIP** (`Laleh-Academy-Certificates/`) containing:
+   - `certificates/<id>.png` — one per successful row
+   - `qr-codes/<id>-qr.png` — the QR code alone, in case you need it separately
+   - `registry/certificates.csv` — flat administrative record of what was generated
+   - `registry/certificates-registry-snippet.json` — the exact array to paste into
+     `data/certificates.json`
+6. The same JSON snippet is also shown on-page so you can copy it without unzipping.
+
+**IDs never collide with existing or in-batch certificates:** before generating, the
+tool re-fetches the live `data/certificates.json` and only allocates a random ID that
+isn't already present there or already used earlier in this batch (see [§5](#5-certificate-ids)
+for why IDs are random rather than sequential).
+
+**On PDF vs. PNG:** the brief's example output structure shows `.pdf` files; this
+implementation exports `.png` instead. Reliable client-side PDF generation needs an
+additional library and buys nothing for image-based certificates — a 300 DPI PNG
+prints identically to a PDF wrapping the same image, and skipping the extra dependency
+keeps the tool simpler and more reliable in-browser. If you specifically need `.pdf`
+files, convert the PNGs afterward with any standard tool (they're print-resolution
+already).
+
+**CSV export safety:** cells in the exported CSV that start with `=`, `+`, `-`, or `@`
+are prefixed with a leading quote before being written. Spreadsheet applications treat
+a leading character like that as the start of a formula, and a certificate/recipient
+field containing one (accidentally or maliciously) could otherwise execute when someone
+opens the export in Excel/Sheets — this is the standard mitigation for that class of
+issue ("CSV/formula injection").
+
+### 8.3 Verification seal
+
+A **Laleh Academy VERIFIED seal** now overlays the certificate preview on the public
+verification page, but only under two conditions, both required:
+1. `record.status === "valid"` — revoked, expired, pending, and not-found never show it.
+2. The registry record includes a `certificateImage` field.
+
+That second condition matters: the public verification page still does **not** show a
+certificate image for every certificate by default (see [§9 Privacy](#9-privacy) —
+that decision from the original build stands). A preview + seal only appear for a
+certificate an administrator has explicitly opted in by adding a `certificateImage`
+path pointing at a stored image (e.g. `/assets/certificate/issued/LA-2026-000184.png`).
+One sample record (`LA-2026-000184`) ships with this enabled so you can see it live.
+
+The seal is drawn by the verification page itself (`js/verify.js` +
+`.verify-seal` in `css/style.css`) as a positioned overlay — **it is never baked into
+the certificate file**, is sized responsively (smaller on narrow phone screens so it
+doesn't dominate a small preview), and its presence is driven entirely by the fetched
+registry record, never by a URL parameter — there is no way to make the seal appear on
+an invalid or revoked certificate by crafting a link.
+
+### 8.4 QR positioning editor
+
+In the **Template / QR Settings** tab, pick a certificate type and drag the gold box
+directly on the live preview to reposition the QR code; drag the small circular handle
+at its corner to resize. Numeric X/Y/Width/Height (%) fields stay in sync for precise
+adjustment, and an optional **snap to whole percentage points** toggle is available for
+grid-like placement without forcing it.
+
+The editor flags placement issues as you drag:
+- QR too small for reliable printing (under roughly 0.7in on the physical certificate)
+- QR extending outside the certificate boundary
+- Insufficient quiet-zone margin near the edge
+- QR sitting over a dark or visually busy area of the template (checked by sampling
+  the actual rendered pixels under the box)
+
+None of these block you from proceeding — they're warnings, not hard stops, since a
+human may have context the heuristic doesn't (e.g., a template with a deliberately
+plain corner that just happens to read as "busy" by the brightness heuristic).
+
+**Persistence:** clicking **Save** stores the position in `localStorage`, scoped to
+that template, purely as a browser-local convenience so you don't lose work-in-progress
+on reload — it is **not** shared to other admins or committed anywhere automatically
+(the same reasoning as everywhere else in this project: a static site can't write to
+itself). To make a position permanent, copy the JSON shown under the preview and paste
+it into that template's `qrPosition` object in `js/templates.js`, then commit. Once
+committed, that position is what every future single or bulk generation uses for that
+template automatically.
+
+---
+
+## 9. Privacy
 
 The registry only stores what's needed to verify a certificate: recipient name,
 program/certificate name, dates, duration, instructor/department, status, and ID. It
@@ -341,21 +472,21 @@ never stores phone numbers, email addresses, home addresses, national ID numbers
 any other private contact/identity information — don't add these fields.
 
 **On the certificate preview/download question (spec §14):** the public verification
-page in this build shows certificate *data* (a text summary) but does **not** offer a
-downloadable image of the certificate itself from the public page. Reasoning: a
-downloadable image is easy to screenshot/redistribute regardless, but *serving* one
-directly from the verification page invites treating the portal as a document host
-rather than a verification tool, and creates an incentive to store every issued
-certificate image in the public repo indefinitely (increasing what's exposed if any
-single certificate needs to be reconsidered). If Laleh Academy wants this feature,
-the cleanest approach is: store issued images under `assets/certificate/issued/<id>.png`,
-add a `certificateImage` field to that record, and have the verification page render
-an `<img>`/"Download" link only when that field is present — opt-in per record, not
-a blanket default.
+page shows certificate *data* (a text summary) for every valid certificate, but a full
+certificate **image preview** (with the verification seal, [§8.3](#83-verification-seal))
+only appears for records that explicitly opt in via a `certificateImage` field — it is
+not shown for every certificate by default. Reasoning: a downloadable image is easy to
+screenshot/redistribute regardless, but *serving* one from every verification page by
+default invites treating the portal as a document host rather than a verification tool,
+and creates an incentive to store every issued certificate image in the public repo
+indefinitely (increasing what's exposed if any single certificate needs to be
+reconsidered). Opting a specific certificate in is a deliberate per-record choice: add
+the image under `assets/certificate/issued/<id>.png` and reference it via
+`certificateImage` in that record — as done for the `LA-2026-000184` sample.
 
 ---
 
-## 9. Deployment
+## 10. Deployment
 
 ### Create and configure the repository
 1. Create a new **public** GitHub repository (private repos need GitHub Pro/Team/Enterprise for Pages).
@@ -378,8 +509,17 @@ a blanket default.
 - `https://lalehacademy.github.io/certificates/LA-2026-000184` — redirects to the line above.
 - `https://lalehacademy.github.io/verify/?id=LA-2026-000002` — shows **revoked**.
 - `https://lalehacademy.github.io/verify/?id=LA-9999-999999` — shows **not found**.
-- `https://lalehacademy.github.io/generator/` — the admin tool loads and can generate a PNG + JSON.
-- Scan a generated QR code with a phone camera and confirm it opens the correct page.
+- `https://lalehacademy.github.io/generator/` — shows the password screen; wrong
+  password shows an error, correct password opens the dashboard.
+- Refresh the generator page while logged in — session should persist (until timeout).
+- Click **Log Out** — should return to the password screen immediately.
+- Bulk Generation tab: upload a small CSV (a few rows, one with a missing recipient and
+  one with a bad date) and confirm the preview correctly marks Ready vs. Error rows,
+  then generate and confirm the downloaded ZIP contains matching certificates/QR codes.
+- Template / QR Settings tab: drag the QR box, resize it, confirm the numeric fields and
+  warnings update, and that Reset restores the template's committed position.
+- On the verification page, confirm `LA-2026-000184` shows a certificate preview with
+  the VERIFIED seal, and that `LA-2026-000002` (revoked) shows no seal.
 
 ### Adding / updating / revoking certificates
 1. Open `/generator/` and fill in the certificate details, or hand-write a JSON object
@@ -402,7 +542,7 @@ a blanket default.
 
 ---
 
-## 10. Future scalability
+## 11. Future scalability
 
 The current design is deliberately simple, but each of these is a natural extension
 that doesn't require re-architecting the core:
@@ -424,7 +564,7 @@ that doesn't require re-architecting the core:
 
 ---
 
-## 11. Known limitations (be upfront about these)
+## 12. Known limitations (be upfront about these)
 
 - This is **verification against a registry**, not cryptographic proof. Anyone with
   repository write access can add or edit a record. Access control is GitHub's
