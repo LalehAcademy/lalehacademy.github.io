@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Verification — Laleh Academy</title>
+<meta name="description" content="Verify the authenticity of a certificate issued by Laleh Academy using its certificate ID or QR code.">
+<link rel="icon" href="assets/logo/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="site-header__inner">
+    <a class="brand" href="/">
+      <img class="brand__mark" src="assets/logo/logo.svg" alt="" width="40" height="40">
+      <span>
+        <span class="brand__name" style="display:block;">Laleh Academy</span>
+        <span class="brand__tagline">Certificate Verification</span>
+      </span>
+    </a>
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button type="button" aria-pressed="true">EN</button>
+      <button type="button" aria-pressed="false" id="arBtn" title="Arabic version in progress">العربية</button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <div class="container">
+    <section class="hero">
+      <span class="hero__eyebrow">Official Certificate Registry</span>
+      <h1>Verify a Laleh Academy certificate</h1>
+      <p class="lead">Check the authenticity and details of any certificate issued by Laleh Academy using its certificate ID or the QR code printed on the document.</p>
+    </section>
+
+    <section class="search-card" aria-labelledby="searchHeading">
+      <h2 id="searchHeading" class="visually-hidden">Search by certificate ID</h2>
+      <form id="verifyForm" novalidate>
+        <div class="search-field">
+          <label for="certId">Certificate ID</label>
+          <input type="text" id="certId" name="certId" placeholder="LA-2026-000184"
+                 autocomplete="off" autocapitalize="characters" spellcheck="false"
+                 aria-describedby="certIdError">
+          <div class="form-error" id="certIdError" role="alert"></div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="align-self:flex-end;">
+          Verify Certificate
+        </button>
+      </form>
+    </section>
+
+    <p class="hint">Scan the QR code printed on your Laleh Academy certificate, or enter the certificate ID above. Certificate IDs follow the format <strong>LA-YYYY-XXXXXX</strong> and appear beneath the QR code on every certificate.</p>
+
+    <section class="how-it-works" aria-labelledby="howHeading">
+      <h2 id="howHeading" class="visually-hidden">How verification works</h2>
+      <div class="step">
+        <span class="step__num">Scan</span>
+        <h3>Scan the QR code</h3>
+        <p>Every Laleh Academy certificate carries a unique QR code linking directly to its verification page.</p>
+      </div>
+      <div class="step">
+        <span class="step__num">Lookup</span>
+        <h3>We check the registry</h3>
+        <p>The certificate ID is matched against Laleh Academy's official certificate registry.</p>
+      </div>
+      <div class="step">
+        <span class="step__num">Confirm</span>
+        <h3>See the result</h3>
+        <p>You'll see whether the certificate is valid, revoked, or not found — along with its recorded details.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-brand">Laleh Academy</div>
+    <div>Official Certificate Verification Portal</div>
+    <nav aria-label="Footer">
+      <a href="/verify/">Verify a certificate</a>
+      <a href="https://github.com/lalehacademy" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="js/utils.js"></script>
+<script>
+  const form = document.getElementById("verifyForm");
+  const input = document.getElementById("certId");
+  const err = document.getElementById("certIdError");
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const raw = input.value.trim();
+    if (!raw) {
+      err.textContent = "Enter a certificate ID to continue.";
+      input.focus();
+      return;
+    }
+    const normalized = LalehUtils.normalizeId(raw);
+    if (!normalized) {
+      err.textContent = "That doesn't look like a Laleh Academy certificate ID. Expected format: LA-2026-000184.";
+      input.focus();
+      return;
+    }
+    err.textContent = "";
+    window.location.href = "/verify/?id=" + encodeURIComponent(normalized);
+  });
+
+  document.getElementById("arBtn").addEventListener("click", () => {
+    alert("العربية — Arabic layout is planned; the site architecture already supports RTL. This build ships English first.");
+  });
+</script>
+</body>
+</html>

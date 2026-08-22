@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting… — Laleh Academy</title>
+<meta name="robots" content="noindex">
+</head>
+<body>
+<script>
+  /*
+   * GitHub Pages serves this file for any path that has no matching file,
+   * including our "pretty" certificate URLs such as:
+   *   /certificates/LA-2026-000184
+   * There is no server-side router on GitHub Pages, so we rewrite that
+   * path into the canonical query-string route the app understands and
+   * hand off to it with a client-side redirect. This costs one extra
+   * round trip but works reliably after deployment (unlike routing
+   * tricks that only work with a local dev server).
+   */
+  (function () {
+    var path = window.location.pathname; // e.g. /certificates/LA-2026-000184
+    var match = path.match(/\/certificates\/([A-Za-z0-9-]+)\/?$/);
+    if (match && match[1]) {
+      window.location.replace("/verify/?id=" + encodeURIComponent(match[1]));
+      return;
+    }
+    // Anything else genuinely doesn't exist — send the visitor home.
+    window.location.replace("/");
+  })();
+</script>
+<noscript>
+  <p>Page not found. <a href="/">Return to Laleh Academy Certificate Verification.</a></p>
+</noscript>
+</body>
+</html>

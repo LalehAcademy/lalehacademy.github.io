@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Administration — Laleh Academy</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/assets/logo/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  .gen-layout { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; padding: 24px 0 60px; }
+  @media (max-width: 900px) { .gen-layout { grid-template-columns: 1fr; } }
+  .gen-form, .preview-wrap, .admin-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-card); }
+  .gen-form h2, .admin-card h2 { font-family: var(--font-display); font-size: 1.05rem; color: var(--blue-900); margin-top: 0; }
+  .field { margin-bottom: 14px; }
+  .field label { display:block; font-size: 0.8rem; font-weight: 600; color: var(--ink-soft); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; padding: 10px 11px; border: 1.5px solid var(--border-strong);
+    border-radius: var(--radius-sm); font-family: var(--font-body); font-size: 0.92rem; background: var(--paper);
+  }
+  .field small { display:block; color: var(--ink-soft); font-size: 0.75rem; margin-top: 4px; }
+  .field-row { display:flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+  .id-row { display:flex; gap: 8px; align-items: flex-end; }
+  .id-row .field { flex:1; margin-bottom:0; }
+  #certCanvas { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 8px; background:#fff; }
+  .actions { display:flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .notice { background:#FFF7DE; border:1px solid #F2E3A6; border-radius: var(--radius-sm); padding: 12px 14px; font-size: 0.85rem; color:#5C4400; margin-bottom: 18px; }
+  .json-out { width:100%; min-height: 160px; font-family: var(--font-mono); font-size: 0.8rem; padding: 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--border-strong); background: var(--ink); color: #DCE3FF; margin-top: 10px; }
+
+  /* ---- Auth gate ---- */
+  .auth-gate-wrap { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .auth-card { max-width: 380px; width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 32px 28px; text-align: center; }
+  .auth-card h1 { font-family: var(--font-display); font-size: 1.3rem; color: var(--blue-900); margin: 14px 0 4px; }
+  .auth-card p.sub { color: var(--ink-soft); font-size: 0.85rem; margin: 0 0 20px; }
+  .auth-card input[type="password"] {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border-strong); border-radius: var(--radius-sm);
+    font-size: 0.95rem; margin-bottom: 10px; text-align: center; letter-spacing: 0.05em;
+  }
+  .auth-card .btn { width: 100%; }
+  .auth-error { color: var(--bad-ink); font-size: 0.85rem; min-height: 1.2em; margin-bottom: 10px; }
+  .auth-note { font-size: 0.72rem; color: var(--ink-soft); margin-top: 18px; text-align: left; background: var(--paper); border-radius: var(--radius-sm); padding: 10px 12px; }
+
+  /* ---- Dashboard nav ---- */
+  .admin-topbar { display:flex; align-items:center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 0; }
+  .admin-tabs { display:flex; gap: 6px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 4px; }
+  .admin-tabs button {
+    border: none; background: transparent; padding: 9px 16px; border-radius: 999px; cursor: pointer;
+    font-family: var(--font-body); font-size: 0.86rem; font-weight: 600; color: var(--ink-soft);
+  }
+  .admin-tabs button[aria-selected="true"] { background: var(--blue-900); color: #fff; }
+  .admin-panel { display: none; }
+  .admin-panel.is-active { display: block; }
+
+  /* ---- Bulk ---- */
+  .dropzone { border: 2px dashed var(--border-strong); border-radius: var(--radius-sm); padding: 26px; text-align: center; background: var(--paper); }
+  .dropzone input { display:none; }
+  .bulk-table { width:100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 10px; }
+  .bulk-table th, .bulk-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .bulk-status { font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+  .bulk-status--ready { background: var(--ok-bg); color: var(--ok-ink); }
+  .bulk-status--error { background: var(--bad-bg); color: var(--bad-ink); cursor: help; }
+  .bulk-errors { background: var(--bad-bg); border: 1px solid var(--bad-ring); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 14px; font-size: 0.85rem; color: var(--bad-ink); }
+  .bulk-errors ul { margin: 6px 0 0; padding-inline-start: 18px; }
+  .bulk-summary { border-radius: var(--radius-sm); padding: 14px 16px; font-size: 0.9rem; margin-top: 14px; }
+  .bulk-summary--ok { background: var(--ok-bg); color: var(--ok-ink); border: 1px solid var(--ok-ring); }
+  .bulk-summary--warn { background: var(--warn-bg); color: var(--warn-ink); border: 1px solid var(--warn-ring); }
+  .progress-track { background: var(--border); border-radius: 999px; height: 10px; overflow: hidden; margin-top: 10px; }
+  .progress-bar { background: var(--blue-600); height: 100%; width: 0%; transition: width 0.2s ease; }
+  #bulkFileError { color: var(--bad-ink); font-size: 0.85rem; margin-top: 8px; }
+
+  /* ---- QR editor ---- */
+  .qr-editor-canvas-wrap { position: relative; width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  #qrEditorCanvas { width: 100%; height: auto; display: block; }
+  #qrDragArea { position: absolute; inset: 0; }
+  #qrDragBox {
+    position: absolute; border: 2px solid var(--gold); background: rgba(247,196,29,0.18);
+    cursor: move; touch-action: none; min-width: 16px; min-height: 16px;
+  }
+  .qr-resize-handle {
+    position: absolute; right: -7px; bottom: -7px; width: 16px; height: 16px;
+    background: var(--blue-900); border: 2px solid #fff; border-radius: 50%; cursor: nwse-resize; touch-action: none;
+  }
+  .qr-coord-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 14px 0; }
+  .qr-coord-grid label { font-size: 0.7rem; }
+  #qrWarnings { list-style: none; margin: 12px 0 0; padding: 0; }
+  .qr-warning { font-size: 0.82rem; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--warn-bg); color: var(--warn-ink); margin-bottom: 6px; }
+  .qr-warning--ok { background: var(--ok-bg); color: var(--ok-ink); }
+  .snap-row { display:flex; align-items:center; gap: 8px; font-size: 0.85rem; color: var(--ink-soft); margin: 10px 0; }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH GATE ============ -->
+<div id="authGate">
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="/">
+        <img class="brand__mark" src="/assets/logo/logo.svg" alt="" width="40" height="40">
+        <span><span class="brand__name" style="display:block;">Laleh Academy</span></span>
+      </a>
+    </div>
+  </header>
+  <div class="auth-gate-wrap">
+    <div class="auth-card">
+      <img src="/assets/logo/logo.svg" alt="" width="48" height="48">
+      <h1>Certificate Administration</h1>
+      <p class="sub">Authorized access only.</p>
+      <form id="authForm">
+        <div class="auth-error" id="authError" role="alert"></div>
+        <input type="password" id="authPassword" placeholder="Password" autocomplete="current-password" required>
+        <button type="submit" class="btn btn-primary">Access Generator</button>
+      </form>
+      <div class="auth-note">
+        This password screen is a deterrent, not real security — GitHub Pages can't hold
+        a true secret. Access to <code>data/certificates.json</code> via GitHub repository
+        permissions is what actually controls who can issue real certificates. See the
+        README's "Password protection" section.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN APP (hidden until authenticated) ============ -->
+<div id="adminApp" style="display:none;">
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="/">
+        <img class="brand__mark" src="/assets/logo/logo.svg" alt="" width="40" height="40">
+        <span>
+          <span class="brand__name" style="display:block;">Laleh Academy</span>
+          <span class="brand__tagline">Certificate Administration</span>
+        </span>
+      </a>
+      <button type="button" class="btn btn-ghost" id="logoutBtn" style="margin-inline-start:auto;">Log Out</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="container" style="max-width: 1180px;">
+      <div class="notice">
+        <strong>Admin tool — runs entirely in your browser.</strong> Nothing here is published automatically.
+        Download the certificate(s) and registry entry/entries, then commit them into
+        <code>data/certificates.json</code> yourself. See the README for the full workflow.
+      </div>
+
+      <nav class="admin-topbar">
+        <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+          <button type="button" role="tab" aria-selected="true" data-panel="panel-single">Create Certificate</button>
+          <button type="button" role="tab" aria-selected="false" data-panel="panel-bulk">Bulk Generation</button>
+          <button type="button" role="tab" aria-selected="false" data-panel="panel-qr">Template / QR Settings</button>
+        </div>
+      </nav>
+
+      <!-- ===== Panel: Create Certificate ===== -->
+      <section id="panel-single" class="admin-panel is-active">
+        <div class="gen-layout">
+          <form class="gen-form" id="genForm">
+            <h2>Certificate details</h2>
+
+            <div class="field">
+              <label for="templateId">Certificate type</label>
+              <select id="templateId"></select>
+              <small id="templateDesc"></small>
+            </div>
+
+            <div class="id-row">
+              <div class="field">
+                <label for="certId">Certificate ID</label>
+                <input type="text" id="certId" placeholder="LA-2026-000187" readonly>
+                <small>Generated automatically. Random within the year to avoid predictable, enumerable IDs.</small>
+              </div>
+              <button type="button" class="btn btn-ghost" id="regenId">New ID</button>
+            </div>
+
+            <div class="field">
+              <label for="recipient">Recipient name</label>
+              <input type="text" id="recipient" placeholder="Ahmed Karim Jassim" required>
+            </div>
+
+            <div class="field">
+              <label for="certType">Certificate title</label>
+              <input type="text" id="certType" placeholder="Certificate of Completion">
+              <small>Auto-filled from the certificate type above — edit freely if you need custom wording.</small>
+            </div>
+
+            <div class="field">
+              <label for="program">Course / program</label>
+              <input type="text" id="program" placeholder="Petroleum Engineering Training Program" required>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="issueDate">Issue date</label>
+                <input type="date" id="issueDate" required>
+              </div>
+              <div class="field">
+                <label for="completionDate">Completion date</label>
+                <input type="date" id="completionDate">
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <label for="duration">Duration</label>
+                <input type="text" id="duration" placeholder="40 hours">
+              </div>
+              <div class="field">
+                <label for="status">Status</label>
+                <select id="status">
+                  <option value="valid" selected>Valid</option>
+                  <option value="pending">Pending</option>
+                  <option value="revoked">Revoked</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="instructor">Instructor (optional)</label>
+              <input type="text" id="instructor">
+            </div>
+
+            <div class="field">
+              <label for="department">Department (optional)</label>
+              <input type="text" id="department">
+            </div>
+
+            <div class="field">
+              <label for="baseUrl">Verification domain</label>
+              <input type="text" id="baseUrl" value="https://lalehacademy.github.io">
+              <small>QR code will encode {domain}/certificates/{id}</small>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;">Generate certificate + QR</button>
+          </form>
+
+          <div class="preview-wrap">
+            <h2 style="font-family: var(--font-display); color: var(--blue-900); margin-top:0;">Preview</h2>
+            <canvas id="certCanvas" width="3300" height="2550"></canvas>
+            <div class="actions">
+              <button type="button" class="btn btn-gold" id="downloadPng" disabled>Download certificate (PNG)</button>
+              <button type="button" class="btn btn-ghost" id="downloadQr" disabled>Download QR only</button>
+            </div>
+
+            <h2 style="font-family: var(--font-display); color: var(--blue-900); margin-top:22px;">Registry entry</h2>
+            <p style="font-size:0.85rem; color:var(--ink-soft); margin-top:-6px;">Copy this object into the <code>certificates</code> array in <code>data/certificates.json</code>.</p>
+            <textarea class="json-out" id="jsonOut" readonly></textarea>
+            <div class="actions">
+              <button type="button" class="btn btn-ghost" id="copyJson">Copy JSON</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Panel: Bulk Generation ===== -->
+      <section id="panel-bulk" class="admin-panel">
+        <div class="admin-card" style="margin-bottom:16px;">
+          <h2>1. Upload CSV</h2>
+          <p style="font-size:0.85rem; color:var(--ink-soft); margin-top:-4px;">
+            Required columns: <code>recipient</code>, <code>certificate</code>, <code>issueDate</code> (YYYY-MM-DD).
+            Optional: <code>completionDate</code>, <code>duration</code>, <code>instructor</code>, <code>department</code>, <code>title</code>.
+            Nothing is generated yet — you'll see a preview first.
+          </p>
+          <div class="dropzone">
+            <label for="bulkCsvInput" class="btn btn-primary" style="cursor:pointer;">Choose CSV file</label>
+            <input type="file" id="bulkCsvInput" accept=".csv,text/csv">
+            <div id="bulkFileError"></div>
+          </div>
+
+          <div class="field-row" style="margin-top:16px;">
+            <div class="field">
+              <label for="bulkTemplateSelect">Certificate type</label>
+              <select id="bulkTemplateSelect"></select>
+            </div>
+            <div class="field">
+              <label for="bulkStatus">Status for all rows</label>
+              <select id="bulkStatus">
+                <option value="valid" selected>Valid</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="bulkBaseUrl">Verification domain</label>
+            <input type="text" id="bulkBaseUrl" value="https://lalehacademy.github.io">
+          </div>
+        </div>
+
+        <div class="admin-card" style="margin-bottom:16px;">
+          <h2>2. Preview</h2>
+          <div id="bulkPreview"></div>
+        </div>
+
+        <div class="admin-card">
+          <h2>3. Generate</h2>
+          <button type="button" class="btn btn-primary" id="bulkGenerateBtn" disabled>Generate 0 Certificates</button>
+          <div id="bulkProgress" style="display:none; margin-top:14px;">
+            <div id="bulkProgressLabel" style="font-size:0.85rem; color:var(--ink-soft);"></div>
+            <div class="progress-track"><div class="progress-bar" id="bulkProgressBar"></div></div>
+          </div>
+          <div id="bulkResult"></div>
+          <p style="font-size:0.78rem; color:var(--ink-soft); margin-top:14px;">
+            Certificate images are exported as high-resolution PNGs, not PDFs — reliable in-browser
+            PDF generation would need an extra library and offers no real benefit for image-based
+            certificates. PNGs at this resolution (3300×2550, ~300 DPI) print cleanly; convert to
+            PDF afterward with any print/export tool if you specifically need that format.
+          </p>
+        </div>
+      </section>
+
+      <!-- ===== Panel: Template / QR Settings ===== -->
+      <section id="panel-qr" class="admin-panel">
+        <div class="gen-layout">
+          <div class="admin-card">
+            <h2>QR position editor</h2>
+            <div class="field">
+              <label for="qrTemplateSelect">Certificate type</label>
+              <select id="qrTemplateSelect"></select>
+            </div>
+            <div class="snap-row">
+              <input type="checkbox" id="snapToggle">
+              <label for="snapToggle" style="margin:0;">Snap to whole percentage points while dragging</label>
+            </div>
+            <div class="qr-coord-grid">
+              <div class="field"><label for="qrX">X %</label><input type="number" id="qrX" step="0.1"></div>
+              <div class="field"><label for="qrY">Y %</label><input type="number" id="qrY" step="0.1"></div>
+              <div class="field"><label for="qrW">Width %</label><input type="number" id="qrW" step="0.1"></div>
+              <div class="field"><label for="qrH">Height %</label><input type="number" id="qrH" step="0.1"></div>
+            </div>
+            <div class="actions">
+              <button type="button" class="btn btn-ghost" id="qrResetBtn">Reset Position</button>
+              <button type="button" class="btn btn-gold" id="qrSaveBtn">Save (this browser)</button>
+            </div>
+            <div id="qrSaveStatus" style="font-size:0.8rem; color: var(--ok-ink); min-height:1.2em; margin-top:8px;"></div>
+            <ul id="qrWarnings"></ul>
+          </div>
+
+          <div class="preview-wrap">
+            <h2 style="font-family: var(--font-display); color: var(--blue-900); margin-top:0;">Drag to position, drag the gold handle to resize</h2>
+            <div class="qr-editor-canvas-wrap">
+              <canvas id="qrEditorCanvas"></canvas>
+              <div id="qrDragArea">
+                <div id="qrDragBox">
+                  <div class="qr-resize-handle"></div>
+                </div>
+              </div>
+            </div>
+            <p style="font-size:0.85rem; color:var(--ink-soft); margin-top:12px;">
+              This is a browser-local tool. Saving here remembers your position on this device only —
+              to make it permanent, copy the JSON below into that template's <code>qrPosition</code>
+              in <code>js/templates.js</code> and commit it.
+            </p>
+            <textarea class="json-out" id="qrOutput" readonly></textarea>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/auth-config.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/templates.js"></script>
+<script src="/js/generator.js"></script>
+<script src="/js/bulk.js"></script>
+<script src="/js/qr-editor.js"></script>
+<script>
+  // Tabs
+  document.querySelectorAll('.admin-tabs button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.admin-tabs button').forEach((b) => b.setAttribute('aria-selected', 'false'));
+      document.querySelectorAll('.admin-panel').forEach((p) => p.classList.remove('is-active'));
+      btn.setAttribute('aria-selected', 'true');
+      document.getElementById(btn.dataset.panel).classList.add('is-active');
+    });
+  });
+
+  let bulkInited = false, qrInited = false;
+  document.querySelector('[data-panel="panel-bulk"]').addEventListener('click', () => {
+    if (!bulkInited) { LalehBulk.init(); bulkInited = true; }
+  });
+  document.querySelector('[data-panel="panel-qr"]').addEventListener('click', () => {
+    if (!qrInited) { LalehQrEditor.init(); qrInited = true; }
+  });
+
+  LalehAuth.initGate();
+</script>
+</body>
+</html>
